@@ -17,7 +17,7 @@ const descontosPorRegiao = {
   '3': 0.08,
 };
 
-const precoCombustivelPorLitro = 0.00;
+const precoCombustivelPorLitro = 5.00;
 
 function pergunta(query) {
   return new Promise((resolve) => {
@@ -29,11 +29,11 @@ function pergunta(query) {
 
 async function solicitarRastreamento() {
   while (true) {
-    const resposta = await pergunta('Você deseja rastrear a entrega? ([s] para Sim/[n] para Não): ');
+    const resposta = await pergunta('Você deseja rastrear a entrega? ([s]Sim/[n]Não): ');
     if (resposta.toLowerCase() === 's') {
       return 200.00;
     } else if (resposta.toLowerCase() === 'n') {
-      return 0; 
+      return 0;
     } else {
       console.log('Resposta inválida. Por favor, responda "s" ou "n".');
     }
@@ -46,24 +46,31 @@ async function processarDados() {
     if (isNaN(numeroDePecas) || numeroDePecas < 0) throw new Error('Número de peças inválido.');
 
     const taxaRastreamento = await solicitarRastreamento();
-    const regiao = (await pergunta('Escolha uma região (1: Sudeste, 2: Sul, 3: Centro-Oeste): ')).toLowerCase();
+
+    const regiao = (await pergunta('Escolha uma região ([1]Sudeste, [2]Sul, [3]Centro-Oeste): ')).toLowerCase();
     if (!precosPorRegiao.hasOwnProperty(regiao)) throw new Error('Região inválida.');
 
     const precoPorPeca = precosPorRegiao[regiao];
-    const desconto = numeroDePecas > 1000 ? descontosPorRegiao[regiao] : 0;
+    const desconto = descontosPorRegiao[regiao];
+
     const distancia = parseFloat(await pergunta('Digite a distância até o destino em quilômetros: '));
     if (isNaN(distancia) || distancia < 0) throw new Error('Distância inválida.');
 
-    const custoSemDesconto = numeroDePecas * precoPorPeca;
-    const valorDesconto = custoSemDesconto * desconto;
-    const custoComDesconto = custoSemDesconto - valorDesconto;
-    const custoTotal = custoComDesconto + taxaRastreamento;
+    const quantidadeSemDesconto = Math.min(numeroDePecas, 1000);
+    const quantidadeComDesconto = Math.max(numeroDePecas - 1000, 0);
+
+    const custoSemDesconto = quantidadeSemDesconto * precoPorPeca;
+    const custoComDesconto = quantidadeComDesconto * precoPorPeca * (1 - desconto);
+    const custoTotal = custoSemDesconto + custoComDesconto + taxaRastreamento;
+
     const consumoCombustivel = distancia;
     const custoCombustivel = consumoCombustivel * precoCombustivelPorLitro;
 
-    console.log(`O custo total para ${numeroDePecas} peças, com desconto de R$${valorDesconto.toFixed(2)} e taxa de rastreamento de R$${taxaRastreamento.toFixed(2)}, é: R$${custoTotal.toFixed(2)}.`);
-    console.log(`O custo estimado do combustível para a distância de ${distancia} km é: R$${custoCombustivel.toFixed(2)}.`);
-    console.log(`Custo total incluindo o combustível: R$${(custoTotal + custoCombustivel).toFixed(2)}.`);
+    console.log(`Custo sem desconto para as primeiras 1000 peças: R$${custoSemDesconto.toFixed(2)}`);
+    if (quantidadeComDesconto > 0) {
+      console.log(`Custo com desconto para ${quantidadeComDesconto} peças: R$${custoComDesconto.toFixed(2)}`);
+    }
+    console.log(`O valor do frete é de R$${(custoTotal + custoCombustivel).toFixed(2)}, incluindo R$${custoCombustivel.toFixed(2)} para o cumbustivel e R$${taxaRastreamento.toFixed(2)} para rastreamento`)
   } catch (error) {
     console.error(error.message);
   } finally {
